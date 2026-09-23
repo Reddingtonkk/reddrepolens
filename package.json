@@ -1,0 +1,24 @@
+{
+  "name": "reddrepolens",
+  "version": "1.0.0",
+  "description": "GitHub Repository Analyzer",
+  "main": "server.js",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "audit:prod": "npm audit --omit=dev"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.0",
+    "express-session": "^1.19.0",
+    "helmet": "^8.1.0"
+  }
+}

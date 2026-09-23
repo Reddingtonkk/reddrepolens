@@ -1,0 +1,21 @@
+# Dependências
+node_modules/
+
+# Segredos (NUNCA commitar)
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-error.log*
+*.log
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Sessões em arquivo (se um dia usar file store)
+sessions/

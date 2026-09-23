@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>ReddRepoLens</title>
+
+    <link rel="stylesheet" href="Style.css">
+</head>
+
+<body>
+
+    <!-- Olhos no fundo -->
+    <div class="xeno-eyes" id="xeno-eyes" aria-hidden="true">
+
+        <div class="xeno-eye xeno-eye-left">
+            <div class="xeno-pupil"></div>
+        </div>
+
+        <div class="xeno-eye xeno-eye-right">
+            <div class="xeno-pupil"></div>
+        </div>
+
+    </div>
+
+
+    <!-- HEADER -->
+    <header>
+
+        <div class="logo">
+            <span class="logo-redd">Redd</span>RepoLens
+        </div>
+
+
+        <div class="header-right">
+
+            <div class="status">
+                <span class="status-dot"></span>
+                GitHub Analyzer
+            </div>
+
+
+            <!-- Aparece quando NÃO estiver logado -->
+            <a
+                id="github-login"
+                class="github-login"
+                href="/auth/github"
+            >
+                Entrar com GitHub
+            </a>
+
+
+            <!-- Aparece quando estiver logado -->
+            <div
+                id="github-user"
+                class="github-user escondido"
+            >
+
+                <img
+                    id="github-avatar"
+                    class="github-avatar"
+                    src=""
+                    alt="Avatar do GitHub"
+                >
+
+                <div class="github-user-info">
+
+                    <strong id="github-username">
+                        @usuario
+                    </strong>
+
+                    <span id="github-rate">
+                        API: carregando...
+                    </span>
+
+                </div>
+
+                <button
+                    id="github-logout"
+                    class="github-logout"
+                    type="button"
+                >
+                    Sair
+                </button>
+
+            </div>
+
+        </div>
+
+    </header>
+
+
+    <main>
+
+        <!-- HERO -->
+        <section class="hero">
+
+            <p class="mini-title">
+                GITHUB REPOSITORY ANALYZER
+            </p>
+
+
+            <h1>
+                Entenda um repositório<br>
+                <span>em segundos.</span>
+            </h1>
+
+
+            <p class="descricao">
+                Analise stacks, linguagens, dependências,
+                infraestrutura, documentação e muito mais.
+            </p>
+
+
+            <div class="search-box">
+
+                <span class="github-icon">
+                    &lt;/&gt;
+                </span>
+
+
+                <input
+                    id="repo-url"
+                    type="text"
+                    placeholder="https://github.com/usuario/repositorio"
+                    autocomplete="off"
+                    spellcheck="false"
+                >
+
+
+                <button
+                    id="analyze-btn"
+                    type="button"
+                >
+                    Analisar
+                </button>
+
+            </div>
+
+
+            <p class="exemplo">
+                Cole a URL de um repositório público do GitHub
+            </p>
+
+        </section>
+
+
+        <!-- CARREGAMENTO DA ANÁLISE -->
+        <section
+            id="analysis-loading"
+            class="analysis-loading escondido"
+        >
+
+            <div class="analysis-loading-header">
+
+                <span id="analysis-loading-text">
+                    Analisando repositório...
+                </span>
+
+                <span id="analysis-loading-percent">
+                    0%
+                </span>
+
+            </div>
+
+
+            <div class="analysis-progress">
+
+                <div
+                    id="analysis-progress-bar"
+                    class="analysis-progress-bar"
+                ></div>
+
+            </div>
+
+
+            <p
+                id="analysis-loading-step"
+                class="analysis-loading-step"
+            >
+                Preparando análise...
+            </p>
+
+        </section>
+
+
+        <!-- RESULTADO -->
+        <section
+            id="resultado"
+            class="resultado escondido"
+        >
+
+            <!-- CABEÇALHO DO REPOSITÓRIO -->
+            <div class="repo-header">
+
+                <p
+                    class="repo-owner"
+                    id="repo-owner"
+                >
+                    github/repository
+                </p>
+
+
+                <h2 id="repo-name">
+                    Repository
+                </h2>
+
+
+                <p id="repo-description">
+                    Descrição do projeto
+                </p>
+
+            </div>
+
+
+            <!-- ESTATÍSTICAS -->
+            <div class="repo-stats">
+
+                <div class="stat">
+                    <span class="stat-label">
+                        STARS
+                    </span>
+
+                    <strong id="repo-stars">
+                        0
+                    </strong>
+                </div>
+
+
+                <div class="stat">
+                    <span class="stat-label">
+                        FORKS
+                    </span>
+
+                    <strong id="repo-forks">
+                        0
+                    </strong>
+                </div>
+
+
+                <div class="stat">
+                    <span class="stat-label">
+                        ISSUES
+                    </span>
+
+                    <strong id="repo-issues">
+                        0
+                    </strong>
+                </div>
+
+
+                <div class="stat">
+                    <span class="stat-label">
+                        BRANCH
+                    </span>
+
+                    <strong id="repo-branch">
+                        -
+                    </strong>
+                </div>
+
+
+                <div class="stat">
+                    <span class="stat-label">
+                        LICENÇA
+                    </span>
+
+                    <strong id="repo-license">
+                        -
+                    </strong>
+                </div>
+
+            </div>
+
+
+            <!-- GRID -->
+            <div class="grid">
+
+                <!-- STACK -->
+                <div class="card card-grande">
+
+                    <p class="card-title">
+                        STACK
+                    </p>
+
+                    <div
+                        id="stack-list"
+                        class="tags"
+                    ></div>
+
+                </div>
+
+
+                <!-- PROJETO -->
+                <div class="card">
+
+                    <p class="card-title">
+                        PROJETO
+                    </p>
+
+
+                    <div class="checks">
+
+                        <div>
+                            <span id="readme-status">
+                                -
+                            </span>
+
+                            README
+                        </div>
+
+
+                        <div>
+                            <span id="docs-status">
+                                -
+                            </span>
+
+                            Documentação
+                        </div>
+
+
+                        <div>
+                            <span id="tests-status">
+                                -
+                            </span>
+
+                            Testes
+                        </div>
+
+
+                        <div>
+                            <span id="actions-status">
+                                -
+                            </span>
+
+                            GitHub Actions
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- INFRA -->
+                <div class="card">
+
+                    <p class="card-title">
+                        INFRAESTRUTURA
+                    </p>
+
+                    <div
+                        id="infra-list"
+                        class="tags"
+                    ></div>
+
+                </div>
+
+
+                <!-- LINGUAGENS -->
+                <div class="card card-grande">
+
+                    <p class="card-title">
+                        LINGUAGENS
+                    </p>
+
+                    <div id="languages-list"></div>
+
+                </div>
+
+
+                <!-- DEPENDÊNCIAS -->
+                <div class="card card-grande dependencies-card">
+
+                    <p class="card-title dependencies-title">
+                        DEPENDÊNCIAS DETECTADAS
+                    </p>
+
+
+                    <p class="dependencies-description">
+                        Dependências encontradas nos manifests
+                        e arquivos de configuração analisados.
+                    </p>
+
+
+                    <!-- PRODUÇÃO -->
+                    <div class="dependency-section">
+
+                        <div class="dependency-section-title">
+
+                            <span>
+                                Produção
+                            </span>
+
+                            <span
+                                id="production-count"
+                                class="dependency-count"
+                            >
+                                0
+                            </span>
+
+                        </div>
+
+
+                        <div
+                            id="production-dependencies"
+                            class="tags dependency-tags"
+                        ></div>
+
+                    </div>
+
+
+                    <!-- DESENVOLVIMENTO -->
+                    <div class="dependency-section">
+
+                        <div class="dependency-section-title">
+
+                            <span>
+                                Desenvolvimento
+                            </span>
+
+                            <span
+                                id="development-count"
+                                class="dependency-count"
+                            >
+                                0
+                            </span>
+
+                        </div>
+
+
+                        <div
+                            id="development-dependencies"
+                            class="tags dependency-tags"
+                        ></div>
+
+                    </div>
+
+
+                    <!-- PYTHON -->
+                    <div class="dependency-section">
+
+                        <div class="dependency-section-title">
+
+                            <span>
+                                Python
+                            </span>
+
+                            <span
+                                id="python-count"
+                                class="dependency-count"
+                            >
+                                0
+                            </span>
+
+                        </div>
+
+
+                        <div
+                            id="python-dependencies"
+                            class="tags dependency-tags"
+                        ></div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- FERRAMENTAS -->
+                <div class="card">
+
+                    <p class="card-title">
+                        FERRAMENTAS
+                    </p>
+
+                    <div
+                        id="tools-list"
+                        class="tags"
+                    ></div>
+
+                </div>
+
+
+                <!-- ESTRUTURA -->
+                <div class="card">
+
+                    <p class="card-title">
+                        ESTRUTURA
+                    </p>
+
+
+                    <div class="estrutura-list">
+
+                        <div>
+
+                            <span>
+                                Arquivos encontrados
+                            </span>
+
+                            <strong id="repo-files">
+                                0
+                            </strong>
+
+                        </div>
+
+
+                        <div>
+
+                            <span>
+                                package.json
+                            </span>
+
+                            <strong id="repo-packages">
+                                0
+                            </strong>
+
+                        </div>
+
+
+                        <div>
+
+                            <span>
+                                requirements.txt
+                            </span>
+
+                            <strong id="repo-requirements">
+                                0
+                            </strong>
+
+                        </div>
+
+
+                        <div>
+
+                            <span>
+                                Configs reconhecidas
+                            </span>
+
+                            <strong id="repo-configs">
+                                0
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- CONFIGURAÇÕES -->
+                <div class="card card-grande">
+
+                    <p class="card-title">
+                        ARQUIVOS DE CONFIGURAÇÃO DETECTADOS
+                    </p>
+
+
+                    <div
+                        id="config-files-list"
+                        class="tags"
+                    ></div>
+
+
+                    <button
+                        id="config-files-toggle"
+                        class="config-files-toggle escondido"
+                        type="button"
+                    >
+                        Mostrar mais ↓
+                    </button>
+
+                </div>
+
+
+                <!-- ATIVIDADE -->
+                <div class="card">
+
+                    <p class="card-title">
+                        ATIVIDADE
+                    </p>
+
+
+                    <div class="estrutura-list">
+
+                        <div>
+
+                            <span>
+                                Criado em
+                            </span>
+
+                            <strong id="repo-created">
+                                -
+                            </strong>
+
+                        </div>
+
+
+                        <div>
+
+                            <span>
+                                Atualizado em
+                            </span>
+
+                            <strong id="repo-updated">
+                                -
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ÚLTIMO COMMIT -->
+                <div class="card">
+
+                    <p class="card-title">
+                        ÚLTIMO COMMIT
+                    </p>
+
+
+                    <p
+                        id="commit-message"
+                        class="commit-message"
+                    >
+                        -
+                    </p>
+
+
+                    <p
+                        id="commit-info"
+                        class="commit-info"
+                    >
+                        -
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <footer>
+
+        <span>
+            ReddRepoLens
+        </span>
+
+        <p>
+            GitHub Repository Analyzer
+        </p>
+
+    </footer>
+
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
