@@ -511,6 +511,48 @@ function requisitarGitHub(url, token) {
         signal: AbortSignal.timeout(TIMEOUT_GITHUB_MS)
     });
 }
+app.get("/api/search", limiterGithub, exigirLogin, async (req, res) => {
+    const pesquisa = String(req.query.q || "").trim();
+
+    if (!pesquisa || pesquisa.length > 100) {
+        return res.status(400).json({
+            erro: "Digite uma pesquisa de até 100 caracteres."
+        });
+    }
+
+    try {
+        const parametros = new URLSearchParams({
+            q: pesquisa,
+            per_page: "10"
+        });
+
+        const resposta = await requisitarGitHub(
+            `https://api.github.com/search/repositories?${parametros}`,
+            req.session.githubToken
+        );
+
+        if (!resposta.ok) {
+            return res.status(resposta.status).json({
+                erro: "Não foi possível pesquisar os repositórios."
+            });
+        }
+
+        const dados = await resposta.json();
+
+        const repositorios = dados.items.map(repo => ({
+            nome: repo.full_name,
+            descricao: repo.description,
+            linguagem: repo.language,
+            estrelas: repo.stargazers_count,
+            url: repo.html_url
+        }));
+
+        res.json({ repositorios });
+
+    } catch (erro) {
+        responderErro(res, erro, "Pesquisa de repositórios");
+    }
+});
 
 
 function usuarioAutenticado(req) {
