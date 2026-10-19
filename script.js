@@ -9,6 +9,17 @@ const BACKEND = window.location.origin;
 
 const botao = document.getElementById("analyze-btn");
 const repoInput = document.getElementById("repo-url");
+function obterPesquisa() {
+    const pesquisa = repoInput.value.trim();
+    if (pesquisa === "") {
+    return "";
+}
+
+    return pesquisa;
+}
+function ehLinkGitHub(texto) {
+    return texto.startsWith("https://github.com/");
+}
 
 // Impede duas análises ao mesmo tempo (ex.: clique + Enter)
 let analiseEmAndamento = false;
@@ -3234,7 +3245,97 @@ async function analisarRepositorio() {
             false;
     }
 }
+function mostrarRepositorios(repositorios) { reposEncontrados = repositorios;
+    const lista = document.getElementById("resultados-busca");
 
+    lista.innerHTML = "";
+
+    if (repositorios.length === 0) {
+        lista.textContent = "Nenhum repositorio encontrado";
+        lista.classList.remove("escondido");
+        return;
+    }
+
+    repositorios.forEach(repo => {
+        const item = document.createElement("div");
+        item.className = "resultado-busca-item";
+
+        const nome = document.createElement("strong");
+        nome.textContent = repo.nome;
+
+        const descricao = document.createElement("p");
+        descricao.textContent = repo.descricao || "Sem descricao";
+
+        const info = document.createElement("small");
+        info.textContent = `${repo.linguagem || "Sem linguagem"} | ★ ${repo.estrelas}`;
+
+        item.append(nome, descricao, info);
+
+        item.addEventListener("click", () => {
+            repoInput.value = repo.url;
+            lista.classList.add("escondido");
+            analisarRepositorio();
+        });
+
+        lista.appendChild(item);
+    });
+
+    lista.classList.remove("escondido");
+}
+let buscaFechada = false;
+let reposEncontrados = [];
+async function buscarRepositorios(pesquisa) {
+    try {
+        const resposta = await backendFetch(
+            "/api/search?q=" + encodeURIComponent(pesquisa)
+        );
+
+        if (!resposta.ok) {
+            alert("Deu erro na pesquisa");
+            return;
+        }
+
+        const dados = await resposta.json();
+
+    if (!buscaFechada && pesquisa === obterPesquisa()) {
+    mostrarRepositorios(dados.repositorios);
+}
+
+    } catch (erro) {
+        console.log("Erro ao pesquisar:", erro);
+    }
+}
+function pesquisarOuAnalisar() {
+    const pesquisa = obterPesquisa();
+    if (!buscaFechada && reposEncontrados.length > 0 && !ehLinkGitHub(pesquisa)) {
+    const primeiro = reposEncontrados[0];
+
+    repoInput.value = primeiro.url;
+    buscaFechada = true;
+    clearTimeout(tempoBusca);
+
+    document.getElementById("resultados-busca").classList.add("escondido");
+
+    analisarRepositorio();
+    return;
+}
+    buscaFechada = true;
+clearTimeout(tempoBusca);
+    const lista = document.getElementById("resultados-busca");
+lista.classList.add("escondido");
+
+    if (!pesquisa) {
+        alert("Digite um repositório para pesquisar.");
+        return;
+    }
+
+    if (ehLinkGitHub(pesquisa)) {
+        analisarRepositorio();
+        return;
+    }
+
+   buscarRepositorios(pesquisa);
+}
 
 // ======================================================
 // EVENTOS
@@ -3242,7 +3343,7 @@ async function analisarRepositorio() {
 
 botao.addEventListener(
     "click",
-    analisarRepositorio
+    pesquisarOuAnalisar
 );
 
 
@@ -3255,10 +3356,29 @@ repoInput.addEventListener(
             "Enter"
         ) {
 
-            analisarRepositorio();
+            pesquisarOuAnalisar();
         }
     }
 );
+let tempoBusca;
+
+repoInput.addEventListener("input", () => {
+    buscaFechada = false;
+    reposEncontrados = [];
+    clearTimeout(tempoBusca);
+
+    const pesquisa = obterPesquisa();
+    const lista = document.getElementById("resultados-busca");
+
+    if (!pesquisa || ehLinkGitHub(pesquisa)) {
+        lista.classList.add("escondido");
+        return;
+    }
+
+    tempoBusca = setTimeout(() => {
+        buscarRepositorios(pesquisa);
+    }, 20);
+});
 
 
 // ======================================================
