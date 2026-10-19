@@ -324,7 +324,8 @@ function localizarArquivo(nome) {
 const PAGINAS_PUBLICAS = {
     "/": "index.html",
     "/Style.css": "style.css",
-    "/script.js": "script.js"
+    "/script.js": "script.js",
+    "/favicon.ico": "favicon.ico"
 };
 
 for (const [rota, arquivo] of Object.entries(PAGINAS_PUBLICAS)) {
