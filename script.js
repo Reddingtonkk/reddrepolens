@@ -3798,3 +3798,267 @@ function cancelarLoadingAnalise() {
     );
 }
 
+
+
+// REDD_FAVORITOS_UI_V1
+(() => {
+    const favoritos = new Set();
+    let painelAberto = false;
+    let repoAtual = "";
+    let ocupado = false;
+
+    const botaoPainel = document.createElement("button");
+    botaoPainel.id = "redd-favoritos-abrir";
+    botaoPainel.type = "button";
+    botaoPainel.textContent = "☆ Favoritos";
+
+    const botaoEstrela = document.createElement("button");
+    botaoEstrela.id = "redd-favorito-estrela";
+    botaoEstrela.type = "button";
+    botaoEstrela.textContent = "☆ Salvar";
+    botaoEstrela.hidden = true;
+
+    const painel = document.createElement("aside");
+    painel.id = "redd-favoritos-painel";
+    painel.hidden = true;
+    painel.setAttribute("aria-label", "Meus favoritos");
+
+    const topo = document.createElement("div");
+    topo.className = "redd-favoritos-topo";
+
+    const titulo = document.createElement("h2");
+    titulo.textContent = "Meus favoritos";
+
+    const fechar = document.createElement("button");
+    fechar.type = "button";
+    fechar.textContent = "×";
+    fechar.setAttribute("aria-label", "Fechar favoritos");
+
+    const mensagem = document.createElement("p");
+    mensagem.className = "redd-favoritos-mensagem";
+
+    const lista = document.createElement("div");
+    lista.className = "redd-favoritos-lista";
+
+    topo.append(titulo, fechar);
+    painel.append(topo, mensagem, lista);
+
+    function mostrarMensagem(texto) {
+        mensagem.textContent = texto;
+    }
+
+    function obterRepoAtual() {
+        const resultado = document.getElementById("resultado");
+        const owner = document.getElementById("repo-owner");
+
+        if (!resultado || resultado.classList.contains("escondido")) {
+            return "";
+        }
+
+        const nome = owner?.textContent?.trim() || "";
+
+        return /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(nome)
+            ? nome.toLowerCase()
+            : "";
+    }
+
+    function atualizarEstrela() {
+        repoAtual = obterRepoAtual();
+        botaoEstrela.hidden = !repoAtual;
+
+        if (!repoAtual) return;
+
+        const salvo = favoritos.has(repoAtual);
+        botaoEstrela.textContent = salvo ? "★ Salvo" : "☆ Salvar";
+        botaoEstrela.classList.toggle("ativo", salvo);
+        botaoEstrela.disabled = ocupado;
+    }
+
+    async function requisicao(url, opcoes = {}) {
+        const resposta = await fetch(url, {
+            credentials: "include",
+            ...opcoes
+        });
+
+        const dados = await resposta.json().catch(() => ({}));
+
+        if (!resposta.ok) {
+            throw new Error(dados.erro || "Nao foi possivel acessar favoritos.");
+        }
+
+        return dados;
+    }
+
+    async function carregarFavoritos() {
+        mostrarMensagem("Carregando favoritos...");
+
+        try {
+            const dados = await requisicao("/api/favoritos");
+
+            favoritos.clear();
+
+            for (const item of dados.favoritos || []) {
+                favoritos.add(item.repositorio.toLowerCase());
+            }
+
+            mostrarMensagem(
+                favoritos.size ? "" : "Voce ainda nao salvou repositorios."
+            );
+
+            desenharLista();
+            atualizarEstrela();
+        } catch (erro) {
+            mostrarMensagem(erro.message);
+        }
+    }
+
+    function desenharLista() {
+        lista.replaceChildren();
+
+        for (const repo of favoritos) {
+            const item = document.createElement("div");
+            item.className = "redd-favorito-item";
+
+            const nome = document.createElement("span");
+            nome.textContent = repo;
+
+            const abrir = document.createElement("button");
+            abrir.type = "button";
+            abrir.textContent = "Analisar";
+
+            abrir.addEventListener("click", () => {
+                const campo = document.getElementById("repo-url");
+                const analisar = document.getElementById("analyze-btn");
+
+                if (!campo || !analisar) return;
+
+                campo.value = "https://github.com/" + repo;
+                painel.hidden = true;
+                painelAberto = false;
+                analisar.click();
+            });
+
+            const remover = document.createElement("button");
+            remover.type = "button";
+            remover.textContent = "×";
+            remover.title = "Remover favorito";
+
+            remover.addEventListener("click", async () => {
+                remover.disabled = true;
+
+                try {
+                    const [owner, nomeRepo] = repo.split("/");
+
+                    await requisicao(
+                        "/api/favoritos/" +
+                        encodeURIComponent(owner) + "/" +
+                        encodeURIComponent(nomeRepo),
+                        { method: "DELETE" }
+                    );
+
+                    favoritos.delete(repo);
+                    desenharLista();
+                    atualizarEstrela();
+
+                    if (!favoritos.size) {
+                        mostrarMensagem("Voce ainda nao salvou repositorios.");
+                    }
+                } catch (erro) {
+                    mostrarMensagem(erro.message);
+                    remover.disabled = false;
+                }
+            });
+
+            item.append(nome, abrir, remover);
+            lista.append(item);
+        }
+    }
+
+    botaoEstrela.addEventListener("click", async () => {
+        const repo = obterRepoAtual();
+        if (!repo || ocupado) return;
+
+        ocupado = true;
+        atualizarEstrela();
+
+        try {
+            if (favoritos.has(repo)) {
+                const [owner, nomeRepo] = repo.split("/");
+
+                await requisicao(
+                    "/api/favoritos/" +
+                    encodeURIComponent(owner) + "/" +
+                    encodeURIComponent(nomeRepo),
+                    { method: "DELETE" }
+                );
+
+                favoritos.delete(repo);
+            } else {
+                await requisicao("/api/favoritos", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ repositorio: repo })
+                });
+
+                favoritos.add(repo);
+            }
+
+            desenharLista();
+            mostrarMensagem("");
+        } catch (erro) {
+            alert(erro.message);
+        } finally {
+            ocupado = false;
+            atualizarEstrela();
+        }
+    });
+
+    botaoPainel.addEventListener("click", async () => {
+        painelAberto = !painelAberto;
+        painel.hidden = !painelAberto;
+
+        if (painelAberto) {
+            await carregarFavoritos();
+        }
+    });
+
+    fechar.addEventListener("click", () => {
+        painelAberto = false;
+        painel.hidden = true;
+    });
+
+    function iniciar() {
+        const cabecalho = document.querySelector(".header-right");
+        const repoHeader = document.querySelector(".repo-header");
+        const owner = document.getElementById("repo-owner");
+        const resultado = document.getElementById("resultado");
+
+        if (!cabecalho || !repoHeader || !owner || !resultado) return;
+
+        cabecalho.prepend(botaoPainel);
+        repoHeader.append(botaoEstrela);
+        document.body.append(painel);
+
+        const observar = new MutationObserver(atualizarEstrela);
+
+        observar.observe(owner, {
+            childList: true,
+            characterData: true,
+            subtree: true
+        });
+
+        observar.observe(resultado, {
+            attributes: true,
+            attributeFilter: ["class"]
+        });
+
+        atualizarEstrela();
+        carregarFavoritos();
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", iniciar, { once: true });
+    } else {
+        iniciar();
+    }
+})();
