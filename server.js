@@ -11,6 +11,20 @@ import { fileURLToPath } from "url";
 
 dotenv.config();
 
+const { Pool } = await import("pg");
+
+const db = process.env.DATABASE_URL
+    ? new Pool({
+        connectionString: process.env.DATABASE_URL,
+        max: 5,
+        connectionTimeoutMillis: 5000
+    })
+    : null;
+
+if (db) {
+    db.on("error", err => console.error("PostgreSQL:", err.message));
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -938,6 +952,7 @@ app.get(
             req.session.githubToken = githubToken;
 
             req.session.githubUser = {
+                id: usuario.id,
                 login: usuario.login,
                 avatar: usuario.avatar_url,
                 url: usuario.html_url
@@ -1421,6 +1436,121 @@ app.post(
 // 404
 // ======================================================
 
+// REDD_FAVORITOS_SQL_V1
+
+async function prepararFavoritos() {
+    if (!db) return;
+
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS favoritos (
+            id BIGSERIAL PRIMARY KEY,
+            github_id BIGINT NOT NULL,
+            repositorio VARCHAR(201) NOT NULL,
+            criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (github_id, repositorio)
+        )
+    `);
+
+    console.log("PostgreSQL: favoritos prontos.");
+}
+
+function githubId(req) {
+    const id = req.session?.githubUser?.id;
+    return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+function validarRepositorio(valor) {
+    const partes = String(valor || "").trim().split("/");
+
+    if (
+        partes.length !== 2 ||
+        !partes.every(p => IDENTIFICADOR_SEGURO.test(p))
+    ) return null;
+
+    return partes.join("/").toLowerCase();
+}
+
+function exigirIdGitHub(req, res, next) {
+    if (!githubId(req)) {
+        return res.status(401).json({
+            erro: "Entre novamente com GitHub para usar favoritos."
+        });
+    }
+
+    next();
+}
+
+app.get("/api/favoritos", limiterLeve, exigirLogin, exigirIdGitHub, async (req, res) => {
+    if (!db) return res.status(503).json({ erro: "Banco indisponivel." });
+
+    try {
+        const resultado = await db.query(
+            `SELECT repositorio, criado_em
+             FROM favoritos
+             WHERE github_id = $1
+             ORDER BY criado_em DESC`,
+            [githubId(req)]
+        );
+
+        res.json({ favoritos: resultado.rows });
+    } catch (err) {
+        console.error("Listar favoritos:", err.message);
+        res.status(500).json({ erro: "Erro ao listar favoritos." });
+    }
+});
+
+app.post("/api/favoritos", limiterLeve, verificarOrigem, exigirLogin, exigirIdGitHub, async (req, res) => {
+    if (!db) return res.status(503).json({ erro: "Banco indisponivel." });
+
+    const repo = validarRepositorio(req.body?.repositorio);
+
+    if (!repo) {
+        return res.status(400).json({ erro: "Repositorio invalido." });
+    }
+
+    try {
+        await db.query(
+            `INSERT INTO favoritos (github_id, repositorio)
+             VALUES ($1, $2)
+             ON CONFLICT (github_id, repositorio) DO NOTHING`,
+            [githubId(req), repo]
+        );
+
+        res.json({ sucesso: true, repositorio: repo });
+    } catch (err) {
+        console.error("Salvar favorito:", err.message);
+        res.status(500).json({ erro: "Erro ao salvar favorito." });
+    }
+});
+
+app.delete("/api/favoritos/:owner/:repo", limiterLeve, verificarOrigem, exigirLogin, exigirIdGitHub, async (req, res) => {
+    if (!db) return res.status(503).json({ erro: "Banco indisponivel." });
+
+    const repo = validarRepositorio(`${req.params.owner}/${req.params.repo}`);
+
+    if (!repo) {
+        return res.status(400).json({ erro: "Repositorio invalido." });
+    }
+
+    try {
+        await db.query(
+            `DELETE FROM favoritos
+             WHERE github_id = $1 AND repositorio = $2`,
+            [githubId(req), repo]
+        );
+
+        res.json({ sucesso: true });
+    } catch (err) {
+        console.error("Remover favorito:", err.message);
+        res.status(500).json({ erro: "Erro ao remover favorito." });
+    }
+});
+
+if (db) {
+    prepararFavoritos().catch(err => {
+        console.error("PostgreSQL:", err.message);
+    });
+}
 app.use("/api", (req, res) => {
     res.status(404).json({ erro: "Endpoint não encontrado." });
 });
