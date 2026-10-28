@@ -13,19 +13,6 @@
 
 <body>
 
-    <!-- Olhos no fundo -->
-    <div class="xeno-eyes" id="xeno-eyes" aria-hidden="true">
-
-        <div class="xeno-eye xeno-eye-left">
-            <div class="xeno-pupil"></div>
-        </div>
-
-        <div class="xeno-eye xeno-eye-right">
-            <div class="xeno-pupil"></div>
-        </div>
-
-    </div>
-
 
     <!-- HEADER -->
     <header>
@@ -147,7 +134,15 @@
             <div id="resultados-busca" class="resultados-busca escondido"></div>
             </div>
 
-            <p class="exemplo">
+            
+<div class="clone-action">
+    <button id="clone-open-btn" class="clone-button" type="button">
+        <span class="clone-button-icon" aria-hidden="true">↧</span>
+        Clonar e abrir no VS Code
+    </button>
+    <p id="clone-feedback" class="clone-feedback" role="status"></p>
+</div>
+<p class="exemplo">
                 Cole a URL de um repositório público do GitHub
             </p>
 
@@ -667,6 +662,9 @@
 
     <script src="script.js"></script>
 
+
+    <script src="redd-ui.js"></script>
+    
 </body>
 
 </html>

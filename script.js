@@ -3273,6 +3273,9 @@ function mostrarRepositorios(repositorios) { reposEncontrados = repositorios;
 
         item.addEventListener("click", () => {
             repoInput.value = repo.url;
+            buscaFechada = true;
+            numeroBusca++;
+            clearTimeout(tempoBusca);
             lista.classList.add("escondido");
             analisarRepositorio();
         });
@@ -3282,104 +3285,107 @@ function mostrarRepositorios(repositorios) { reposEncontrados = repositorios;
 
     lista.classList.remove("escondido");
 }
+
 let buscaFechada = false;
 let reposEncontrados = [];
+let tempoBusca;
+let numeroBusca = 0;
+
+const TEMPO_DEBOUNCE = 700;
+const listaBusca = document.getElementById("resultados-busca");
+
 async function buscarRepositorios(pesquisa) {
+    const buscaAtual = ++numeroBusca;
+
     try {
         const resposta = await backendFetch(
             "/api/search?q=" + encodeURIComponent(pesquisa)
         );
 
+        if (buscaAtual !== numeroBusca) return;
+
         if (!resposta.ok) {
-            alert("Deu erro na pesquisa");
+            listaBusca.textContent = resposta.status === 401
+                ? "Faca login com GitHub para pesquisar."
+                : "Nao foi possivel pesquisar. Tente novamente.";
+
+            listaBusca.classList.remove("escondido");
             return;
         }
 
         const dados = await resposta.json();
 
-    if (!buscaFechada && pesquisa === obterPesquisa()) {
-    mostrarRepositorios(dados.repositorios);
-}
+        if (
+            buscaAtual !== numeroBusca ||
+            buscaFechada ||
+            pesquisa !== obterPesquisa()
+        ) return;
+
+        mostrarRepositorios(dados.repositorios || []);
+
+        console.log(
+            dados.cache
+                ? "Busca carregada do cache."
+                : "Busca realizada no GitHub."
+        );
 
     } catch (erro) {
-        console.log("Erro ao pesquisar:", erro);
+        if (buscaAtual !== numeroBusca) return;
+
+        console.error("Erro na busca:", erro);
+        listaBusca.textContent = "Erro ao pesquisar.";
+        listaBusca.classList.remove("escondido");
     }
 }
+
 function pesquisarOuAnalisar() {
     const pesquisa = obterPesquisa();
-    if (!buscaFechada && reposEncontrados.length > 0 && !ehLinkGitHub(pesquisa)) {
-    const primeiro = reposEncontrados[0];
-
-    repoInput.value = primeiro.url;
-    buscaFechada = true;
     clearTimeout(tempoBusca);
 
-    document.getElementById("resultados-busca").classList.add("escondido");
-
-    analisarRepositorio();
-    return;
-}
-    buscaFechada = true;
-clearTimeout(tempoBusca);
-    const lista = document.getElementById("resultados-busca");
-lista.classList.add("escondido");
-
     if (!pesquisa) {
-        alert("Digite um repositório para pesquisar.");
+        alert("Digite um repositorio para pesquisar.");
         return;
     }
 
     if (ehLinkGitHub(pesquisa)) {
+        buscaFechada = true;
+        numeroBusca++;
+        listaBusca.classList.add("escondido");
         analisarRepositorio();
         return;
     }
 
-   buscarRepositorios(pesquisa);
-}
-
-// ======================================================
-// EVENTOS
-// ======================================================
-
-botao.addEventListener(
-    "click",
-    pesquisarOuAnalisar
-);
-
-
-repoInput.addEventListener(
-    "keydown",
-    evento => {
-
-        if (
-            evento.key ===
-            "Enter"
-        ) {
-
-            pesquisarOuAnalisar();
-        }
-    }
-);
-let tempoBusca;
-
-repoInput.addEventListener("input", () => {
     buscaFechada = false;
     reposEncontrados = [];
+    buscarRepositorios(pesquisa);
+}
+
+botao.addEventListener("click", pesquisarOuAnalisar);
+
+repoInput.addEventListener("keydown", evento => {
+    if (evento.key === "Enter") {
+        evento.preventDefault();
+        pesquisarOuAnalisar();
+    }
+});
+
+repoInput.addEventListener("input", () => {
     clearTimeout(tempoBusca);
+    numeroBusca++;
+    buscaFechada = false;
+    reposEncontrados = [];
 
     const pesquisa = obterPesquisa();
-    const lista = document.getElementById("resultados-busca");
 
-    if (!pesquisa || ehLinkGitHub(pesquisa)) {
-        lista.classList.add("escondido");
+    if (pesquisa.length < 3 || ehLinkGitHub(pesquisa)) {
+        listaBusca.classList.add("escondido");
         return;
     }
 
     tempoBusca = setTimeout(() => {
         buscarRepositorios(pesquisa);
-    }, 20);
+    }, TEMPO_DEBOUNCE);
 });
-
 
 // ======================================================
 // XENOMORFO
@@ -3791,3 +3797,4 @@ function cancelarLoadingAnalise() {
         "escondido"
     );
 }
+

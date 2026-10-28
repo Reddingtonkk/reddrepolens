@@ -322,6 +322,8 @@ function localizarArquivo(nome) {
 }
 
 const PAGINAS_PUBLICAS = {
+    "/redd-conta.js": "redd-conta.js",
+    "/redd-ui.js": "redd-ui.js",
     "/": "index.html",
     "/Style.css": "style.css",
     "/script.js": "script.js",
@@ -511,49 +513,130 @@ function requisitarGitHub(url, token) {
         signal: AbortSignal.timeout(TIMEOUT_GITHUB_MS)
     });
 }
+
+const CACHE_BUSCA_MS = 30 * 60 * 1000;
+const cacheBuscas = new Map();
+
+function normalizarBusca(texto) {
+    return String(texto || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim();
+}
+
+function pontuarRepositorio(repo, pesquisa) {
+    const termo = normalizarBusca(pesquisa);
+    const nome = normalizarBusca(repo.name);
+    const completo = normalizarBusca(repo.full_name);
+    const descricao = normalizarBusca(repo.description);
+    const compacto = termo.replace(/[^a-z0-9]/g, "");
+    const nomeCompacto = nome.replace(/[^a-z0-9]/g, "");
+
+    let pontos = 0;
+
+    if (completo === termo) pontos += 1000;
+    if (nome === termo) pontos += 800;
+    if (compacto && nomeCompacto === compacto) pontos += 700;
+    if (nome.startsWith(termo)) pontos += 300;
+    if (nome.includes(termo)) pontos += 150;
+    if (descricao.includes(termo)) pontos += 40;
+
+    pontos += Math.min(
+        Math.log10((repo.stargazers_count || 0) + 1) * 15,
+        90
+    );
+
+    return pontos;
+}
+
 app.get("/api/search", limiterGithub, exigirLogin, async (req, res) => {
     const pesquisa = String(req.query.q || "").trim();
 
     if (!pesquisa || pesquisa.length > 100) {
         return res.status(400).json({
-            erro: "Digite uma pesquisa de até 100 caracteres."
+            erro: "Digite uma pesquisa de ate 100 caracteres."
         });
     }
+
+    const chave = JSON.stringify([
+        req.session.githubUser.login,
+        normalizarBusca(pesquisa)
+    ]);
+
+    const agora = Date.now();
+    const salvo = cacheBuscas.get(chave);
+
+    if (salvo && salvo.expira > agora) {
+        return res.json({
+            repositorios: salvo.repositorios,
+            cache: true,
+            expiraEm: salvo.expira
+        });
+    }
+
+    cacheBuscas.delete(chave);
 
     try {
         const parametros = new URLSearchParams({
             q: pesquisa,
-            per_page: "10"
+            per_page: "30"
         });
 
         const resposta = await requisitarGitHub(
-            `https://api.github.com/search/repositories?${parametros}`,
+            "https://api.github.com/search/repositories?" + parametros,
             req.session.githubToken
         );
 
         if (!resposta.ok) {
             return res.status(resposta.status).json({
-                erro: "Não foi possível pesquisar os repositórios."
+                erro: "Nao foi possivel pesquisar os repositorios."
             });
         }
 
         const dados = await resposta.json();
 
-        const repositorios = dados.items.map(repo => ({
-            nome: repo.full_name,
-            descricao: repo.description,
-            linguagem: repo.language,
-            estrelas: repo.stargazers_count,
-            url: repo.html_url
-        }));
+        const repositorios = (dados.items || [])
+            .sort((a, b) =>
+                pontuarRepositorio(b, pesquisa) -
+                pontuarRepositorio(a, pesquisa)
+            )
+            .slice(0, 10)
+            .map(repo => ({
+                nome: repo.full_name,
+                descricao: repo.description,
+                linguagem: repo.language,
+                estrelas: repo.stargazers_count,
+                url: repo.html_url
+            }));
 
-        res.json({ repositorios });
+        for (const [key, item] of cacheBuscas) {
+            if (item.expira <= Date.now()) {
+                cacheBuscas.delete(key);
+            }
+        }
+
+        if (cacheBuscas.size >= 300) {
+            cacheBuscas.delete(cacheBuscas.keys().next().value);
+        }
+
+        const expiraEm = Date.now() + CACHE_BUSCA_MS;
+
+        cacheBuscas.set(chave, {
+            repositorios,
+            expira: expiraEm
+        });
+
+        res.json({
+            repositorios,
+            cache: false,
+            expiraEm
+        });
 
     } catch (erro) {
-        responderErro(res, erro, "Pesquisa de repositórios");
+        responderErro(res, erro, "Pesquisa de repositorios");
     }
 });
-
 
 function usuarioAutenticado(req) {
 
