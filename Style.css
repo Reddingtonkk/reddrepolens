@@ -5518,3 +5518,137 @@ html::-webkit-scrollbar-thumb:hover {
 #redd-favoritos-painel .redd-favorito-item span {
     border-left-color: #aaa;
 }
+
+
+/* REDD_COMMIT_HISTORY_V1 */
+
+.redd-historico-toggle,
+.redd-historico-mais {
+    display: block;
+    width: 100%;
+    margin-top: 16px;
+    padding: 12px 15px;
+    border: 1px solid #414247;
+    border-radius: 10px;
+    background: #202124;
+    color: #e8e8e8;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .2s, border-color .2s, transform .2s;
+}
+
+.redd-historico-toggle:hover,
+.redd-historico-mais:hover {
+    background: #303136;
+    border-color: #888;
+    transform: translateY(-2px);
+}
+
+.redd-historico-area[hidden],
+.redd-historico-mais[hidden] {
+    display: none !important;
+}
+
+.redd-historico-area {
+    margin-top: 18px;
+    animation: reddHistoricoAbrir .35s ease both;
+}
+
+@keyframes reddHistoricoAbrir {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.redd-historico-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.redd-historico-item {
+    padding: 14px;
+    background: #191a1d;
+    border: 1px solid #36373c;
+    border-radius: 11px;
+    animation: reddCommitEntrar .32s ease both;
+    transition: background .2s, border-color .2s;
+}
+
+.redd-historico-item:hover {
+    background: #242529;
+    border-color: #707176;
+}
+
+@keyframes reddCommitEntrar {
+    from {
+        opacity: 0;
+        transform: translateY(9px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.redd-historico-linha {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 9px;
+}
+
+.redd-historico-hash {
+    font-family: monospace;
+    font-size: 11px;
+    color: #d5d5d5;
+    background: #303136;
+    padding: 5px 7px;
+    border-radius: 6px;
+}
+
+.redd-historico-autor {
+    font-size: 11px;
+    color: #a8a8ad;
+    overflow-wrap: anywhere;
+}
+
+.redd-historico-mensagem {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #eeeeee;
+    overflow-wrap: anywhere;
+}
+
+.redd-historico-data {
+    display: block;
+    margin-top: 8px;
+    color: #8e8e94;
+    font-size: 11px;
+}
+
+.redd-historico-status {
+    color: #aaa;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.redd-historico-mais:disabled {
+    opacity: .5;
+    cursor: wait;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .redd-historico-area,
+    .redd-historico-item {
+        animation: none;
+    }
+}

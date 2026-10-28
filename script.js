@@ -4062,3 +4062,268 @@ function cancelarLoadingAnalise() {
         iniciar();
     }
 })();
+
+// REDD_COMMIT_HISTORY_V1
+(() => {
+    const ownerElemento = document.getElementById("repo-owner");
+    const commitElemento = document.getElementById("commit-message");
+    const configBotao = document.getElementById("config-files-toggle");
+
+    if (!ownerElemento || !commitElemento) return;
+
+    const commitCard = commitElemento.closest(".card");
+    if (!commitCard) return;
+
+    const historicoBotao = document.createElement("button");
+    historicoBotao.type = "button";
+    historicoBotao.className = "redd-historico-toggle";
+    historicoBotao.textContent = "Ver historico de commits ↓";
+    historicoBotao.setAttribute("aria-expanded", "false");
+
+    const historicoArea = document.createElement("div");
+    historicoArea.className = "redd-historico-area";
+    historicoArea.hidden = true;
+
+    const historicoLista = document.createElement("div");
+    historicoLista.className = "redd-historico-lista";
+
+    const status = document.createElement("p");
+    status.className = "redd-historico-status";
+
+    const maisBotao = document.createElement("button");
+    maisBotao.type = "button";
+    maisBotao.className = "redd-historico-mais";
+    maisBotao.textContent = "Carregar mais commits";
+    maisBotao.hidden = true;
+
+    historicoArea.append(status, historicoLista, maisBotao);
+    commitCard.append(historicoBotao, historicoArea);
+
+    let pagina = 1;
+    let carregando = false;
+    let fim = false;
+    let repositorioCarregado = "";
+    let versao = 0;
+
+    function repoAtual() {
+        const resultado = document.getElementById("resultado");
+
+        if (resultado?.classList.contains("escondido")) return "";
+
+        const nome = ownerElemento.textContent.trim();
+
+        return /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(nome)
+            ? nome
+            : "";
+    }
+
+    function limparHistorico() {
+        versao++;
+        pagina = 1;
+        fim = false;
+        carregando = false;
+        repositorioCarregado = "";
+        historicoLista.replaceChildren();
+        status.textContent = "";
+        maisBotao.hidden = true;
+        maisBotao.disabled = false;
+        historicoArea.hidden = true;
+        historicoBotao.textContent = "Ver historico de commits ↓";
+        historicoBotao.setAttribute("aria-expanded", "false");
+    }
+
+    function formatarDataCommit(data) {
+        if (!data) return "Data indisponivel";
+
+        const d = new Date(data);
+        if (Number.isNaN(d.getTime())) return "Data indisponivel";
+
+        return d.toLocaleString("pt-BR", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
+
+    function criarCommit(commit) {
+        const item = document.createElement("article");
+        item.className = "redd-historico-item";
+
+        const linha = document.createElement("div");
+        linha.className = "redd-historico-linha";
+
+        const hash = document.createElement("span");
+        hash.className = "redd-historico-hash";
+        hash.textContent = (commit.sha || "").slice(0, 7);
+
+        const autor = document.createElement("span");
+        autor.className = "redd-historico-autor";
+        autor.textContent =
+            commit.commit?.author?.name ||
+            commit.author?.login ||
+            "Autor desconhecido";
+
+        linha.append(hash, autor);
+
+        const mensagem = document.createElement("p");
+        mensagem.className = "redd-historico-mensagem";
+        mensagem.textContent =
+            commit.commit?.message?.split("\n")[0] ||
+            "Sem mensagem";
+
+        const data = document.createElement("small");
+        data.className = "redd-historico-data";
+        data.textContent = formatarDataCommit(
+            commit.commit?.author?.date ||
+            commit.commit?.committer?.date
+        );
+
+        item.append(linha, mensagem, data);
+        return item;
+    }
+
+    async function carregarPagina() {
+        const repo = repoAtual();
+        if (!repo || carregando || fim) return;
+
+        const partes = repo.split("/");
+        if (partes.length !== 2) return;
+
+        carregando = true;
+        const minhaVersao = versao;
+        const paginaSolicitada = pagina;
+
+        maisBotao.disabled = true;
+        status.textContent = "Carregando commits...";
+
+        try {
+            const caminho =
+                "/api/github/repos/" +
+                encodeURIComponent(partes[0]) + "/" +
+                encodeURIComponent(partes[1]) +
+                "/commits?per_page=10&page=" + paginaSolicitada;
+
+            const resposta = await fetch(caminho, {
+                credentials: "include"
+            });
+
+            if (!resposta.ok) {
+                throw new Error(
+                    resposta.status === 401
+                        ? "Entre com GitHub para consultar os commits."
+                        : "Nao foi possivel carregar os commits."
+                );
+            }
+
+            const dados = await resposta.json();
+
+            if (minhaVersao !== versao) return;
+
+            if (!Array.isArray(dados)) {
+                throw new Error("Resposta inesperada do GitHub.");
+            }
+
+            // O ultimo commit ja aparece no card principal.
+            const itens = paginaSolicitada === 1
+                ? dados.slice(1)
+                : dados;
+
+            for (const commit of itens) {
+                historicoLista.append(criarCommit(commit));
+            }
+
+            pagina++;
+
+            if (dados.length < 10) {
+                fim = true;
+            }
+
+            status.textContent = historicoLista.children.length
+                ? ""
+                : "Nenhum commit anterior encontrado.";
+
+            maisBotao.hidden = fim;
+        } catch (erro) {
+            if (minhaVersao === versao) {
+                status.textContent = erro.message;
+                maisBotao.hidden = false;
+            }
+        } finally {
+            if (minhaVersao === versao) {
+                carregando = false;
+                maisBotao.disabled = false;
+            }
+        }
+    }
+
+    historicoBotao.addEventListener("click", async () => {
+        const repo = repoAtual();
+
+        if (!repo) {
+            status.textContent = "Analise um repositorio primeiro.";
+            historicoArea.hidden = false;
+            return;
+        }
+
+        if (!historicoArea.hidden) {
+            historicoArea.hidden = true;
+            historicoBotao.textContent = "Ver historico de commits ↓";
+            historicoBotao.setAttribute("aria-expanded", "false");
+            return;
+        }
+
+        if (repositorioCarregado !== repo) {
+            limparHistorico();
+            repositorioCarregado = repo;
+        }
+
+        historicoArea.hidden = false;
+        historicoBotao.textContent = "Ocultar historico ↑";
+        historicoBotao.setAttribute("aria-expanded", "true");
+
+        if (pagina === 1 && !carregando && !fim) {
+            await carregarPagina();
+        }
+    });
+
+    maisBotao.addEventListener("click", carregarPagina);
+
+    new MutationObserver(limparHistorico).observe(ownerElemento, {
+        childList: true,
+        characterData: true,
+        subtree: true
+    });
+
+    // Animacao dos itens de "Mostrar mais" nas configuracoes.
+    if (configBotao) {
+        configBotao.addEventListener("click", () => {
+            requestAnimationFrame(() => {
+                const lista = document.getElementById("config-files-list");
+                if (!lista) return;
+
+                const itens = Array.from(lista.querySelectorAll(".tag"));
+
+                const visiveis = itens
+                    .slice(8)
+                    .filter(item => getComputedStyle(item).display !== "none");
+
+                visiveis.forEach((item, indice) => {
+                    item.animate(
+                        [
+                            { opacity: 0, transform: "translateY(10px)" },
+                            { opacity: 1, transform: "translateY(0)" }
+                        ],
+                        {
+                            duration: 280,
+                            delay: Math.min(indice * 35, 350),
+                            easing: "ease-out",
+                            fill: "both"
+                        }
+                    );
+                });
+            });
+        });
+    }
+})();
